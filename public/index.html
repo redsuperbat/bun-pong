@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bun Pong</title>
+    <script defer src="/public/app.js"></script>
+    <link rel="stylesheet" href="/public/styles.css" />
+  </head>
+  <body>
+    <div id="root">
+      <div class="running-games">
+        <button onclick="createNewGame()">New game!</button>
+      </div>
+
+      <div>
+        <div class="title-container">
+          <h1 class="title">Bun Pong!</h1>
+          <div class="score"></div>
+          <img
+            src="https://seeklogo.com/images/B/bun-logo-A876328A1F-seeklogo.com.png"
+            class="logo"
+          />
+        </div>
+        <div class="game">
+          <div class="me"></div>
+          <div class="ball"></div>
+          <div class="opponent"></div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

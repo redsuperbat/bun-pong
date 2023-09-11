@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "lib": ["ESNext"],
+    "lib": ["dom"],
     "module": "esnext",
     "target": "esnext",
     "moduleResolution": "bundler",
@@ -8,6 +8,7 @@
     "allowImportingTsExtensions": true,
     "noEmit": true,
     "composite": true,
+
     "strict": true,
     "downlevelIteration": true,
     "skipLibCheck": true,
@@ -15,8 +16,10 @@
     "allowSyntheticDefaultImports": true,
     "forceConsistentCasingInFileNames": true,
     "allowJs": true,
+    "checkJs": true,
     "types": [
-      "bun-types" // add Bun global
+      "bun-types", // add Bun global,
+      "DOM"
     ]
   }
 }
