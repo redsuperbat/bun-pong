@@ -65,13 +65,11 @@ class Player {
   }
 
   sendGameState(state: GameState) {
-    const meY = state.playersPosition.find((it) => it.id === this.id)?.position
-      .y!;
-    const opponentY = state.playersPosition.find((it) => it.id !== this.id)
-      ?.position.y!;
     const data = {
-      meY,
-      opponentY,
+      players: state.playersPosition.map((it) => ({
+        y: it.#position.y,
+        id: it.id,
+      })),
       score: state.score,
       ballPosition: state.ballPosition,
     };
@@ -80,11 +78,11 @@ class Player {
 
   moveUp() {
     if (this.position.y === 0) return;
-    this.position.y -= 1;
+    this.position.y -= 2;
   }
   moveDown() {
     if (this.position.y === 100) return;
-    this.position.y += 1;
+    this.position.y += 2;
   }
 }
 
@@ -92,7 +90,7 @@ class Ball {
   readonly position: Position = new Position(50, 50);
   #area: Area = new Area(this.position, 2, 2);
   #speedX: number = 1;
-  #speedY: number = 1;
+  #speedY: number = 2;
   #width = 2;
   #height = 2;
   #gameHeight: number;
@@ -121,7 +119,7 @@ class Ball {
 
     if (
       this.position.x <= 0 ||
-      this.position.y >= this.#gameWidth - this.#width
+      this.position.x >= this.#gameWidth - this.#width
     ) {
       this.reverseX();
     }
@@ -156,10 +154,12 @@ class Game {
 
   tick() {
     const ballArea = this.#ball.tick();
-
     this.players.forEach((it) => {
-      if (it?.area.intersects(ballArea)) {
+      const isIntersecting = it?.area.intersects(ballArea);
+      if (isIntersecting) {
+        console.log("reversing ball", this.#ball.position);
         this.#ball.reverseX();
+        console.log("reversing ball", this.#ball.position);
       }
     });
     this.#players.forEach((it) => it?.sendGameState(this.state));
@@ -218,7 +218,7 @@ class Game {
 
 const games = new Map<string, Game>();
 
-const server = Bun.serve<{ playerId: string; gameId?: string }>({
+const server = Bun.serve<{ gameId?: string; playerId?: string }>({
   async fetch(req) {
     const succeeded: boolean = server.upgrade(req);
 
@@ -251,62 +251,62 @@ const server = Bun.serve<{ playerId: string; gameId?: string }>({
         .toString()
         .slice(message.indexOf(":") + 1)
         .trim();
-      const playerId = ws.data.playerId;
 
       if (messageType === "start") {
         const gameId = messageData;
-
         if (!gameId) return;
 
         const game = games.get(gameId);
 
         if (!game) {
+          const playerId = "player-1";
           const player1 = new Player(playerId, ws);
           const game = new Game(gameId, player1);
-          console.log("player started a new game", game.players.length);
+          console.log("player created a new game", game.players.length);
           ws.data.gameId = gameId;
+          ws.data.playerId = playerId;
           games.set(gameId, game);
           return;
         }
       }
 
       if (messageType === "join") {
+        const playerId = "player-2";
         const gameId = messageData;
         const game = games.get(gameId);
         if (!game) return;
+        if (game.isEmpty) return;
         if (game.isFull) return;
-
+        console.log("second player joined, starting game", game.gameId);
         const player2 = new Player(playerId, ws);
         game.addPlayer(player2);
         ws.data.gameId = game.gameId;
+        ws.data.playerId = playerId;
         game.start();
       }
       if (messageType === "move-up") {
-        console.log(ws.data);
         const game = games.get(ws.data.gameId ?? "");
-        const player = game?.getPlayer(ws.data.playerId);
+        const player = game?.getPlayer(ws.data.playerId ?? "");
         if (!player) return;
         player.moveUp();
       }
       if (messageType === "move-down") {
-        console.log(ws.data);
         const game = games.get(ws.data.gameId ?? "");
-        const player = game?.getPlayer(ws.data.playerId);
+        const player = game?.getPlayer(ws.data.playerId ?? "");
         if (!player) return;
         player.moveDown();
       }
     },
     open(ws) {
-      ws.data = {
-        playerId: randomUUID(),
-      };
+      console.log("client connected!");
+      ws.data = {};
     },
     close(ws) {
       const gameId = ws.data.gameId ?? "";
       const game = games.get(gameId);
       if (!game) return;
       game.stop();
-      game.removePlayer(ws.data.playerId);
+      game.removePlayer(ws.data.playerId ?? "");
       if (game.isEmpty) {
         games.delete(gameId);
       }

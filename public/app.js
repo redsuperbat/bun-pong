@@ -6,11 +6,11 @@ const ball = document.querySelector(".ball");
 /**
  * @type {HTMLDivElement}
  */
-const me = document.querySelector(".me");
+const player1 = document.querySelector(".player-1");
 /**
  * @type {HTMLDivElement}
  */
-const opponent = document.querySelector(".opponent");
+const player2 = document.querySelector(".player-2");
 
 /**
  * @type {HTMLDivElement}
@@ -41,14 +41,22 @@ ws.addEventListener("message", (msg) => {
   const msgType = data.substring(0, data.indexOf(":")).trim();
   const msgData = data.substring(data.indexOf(":") + 1).trim();
   if (msgType === "game-state") {
+    const playerId = sessionStorage.getItem("playerId");
+    if (!playerId) return;
     const state = JSON.parse(msgData);
     const left = state.ballPosition.x;
     const top = state.ballPosition.y;
     ball.style.top = `${top}%`;
     ball.style.left = `${left}%`;
-    me.style.top = `${state.meY}%`;
-    opponent.style.top = `${state.opponentY}%`;
+    const player1Location = state.players.find((it) => it.id === "player-1");
+    const player2Location = state.players.find((it) => it.id === "player-2");
+    player1.style.top = `${player1Location.y}%`;
+    player2.style.top = `${player2Location.y}%`;
     console.log(state);
+  }
+  if (msgType === "joined") {
+    const { playerId } = JSON.parse(msgData);
+    sessionStorage.setItem("playerId", playerId);
   }
 });
 

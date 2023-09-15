@@ -26,8 +26,8 @@ h1 {
 }
 
 .game {
-  width: 60rem;
-  height: 60rem;
+  width: 80vw;
+  height: 80vw;
   display: flex;
   justify-content: space-between;
   border: 1px solid black;
@@ -39,21 +39,25 @@ h1 {
   border-radius: 2rem;
   background: black;
   position: absolute;
-  transition: top 0.5s left 0.5s;
+  transition: top 100ms linear, left 100ms linear; /* Define the transition */
+  top: 0;
+  left: 0;
 }
-.me,
-.opponent {
+.player-1,
+.player-2 {
   height: 8%;
   width: 1%;
   top: 50%;
   position: absolute;
+  top: 0;
+  transition: top 100ms linear;
 }
 
-.me {
+.player-1 {
   left: 0;
   background-color: blueviolet;
 }
-.opponent {
+.player-2 {
   right: 0;
   background-color: burlywood;
 }
