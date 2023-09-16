@@ -5,6 +5,7 @@
   align-items: center;
   height: 100vh;
   width: 100vw;
+  position: relative;
 }
 body {
   margin: 0;
@@ -26,8 +27,8 @@ h1 {
 }
 
 .game {
-  width: 80vw;
-  height: 80vw;
+  width: 80vmin;
+  height: 80vmin;
   display: flex;
   justify-content: space-between;
   border: 1px solid black;
@@ -40,8 +41,8 @@ h1 {
   background: black;
   position: absolute;
   transition: top 100ms linear, left 100ms linear; /* Define the transition */
-  top: 0;
-  left: 0;
+  top: 50%;
+  left: 50%;
 }
 .player-1,
 .player-2 {
@@ -60,4 +61,23 @@ h1 {
 .player-2 {
   right: 0;
   background-color: burlywood;
+}
+
+.player-title-1, .player-title-2 {
+  font-size: larger;
+  text-transform: uppercase;
+  font-weight: bold;
+}
+
+.player-title-active::after {
+  content: "THIS IS YOU!!!!";
+  color: red;
+}
+
+.countdown {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 100px;
 }

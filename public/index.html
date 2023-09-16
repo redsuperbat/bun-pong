@@ -9,18 +9,25 @@
   </head>
   <body>
     <div id="root">
+      <div class="countdown"></div>
+      <button onclick="createNewGame()">New game!</button>
       <div class="running-games">
-        <button onclick="createNewGame()">New game!</button>
       </div>
 
       <div>
         <div class="title-container">
           <h1 class="title">Bun Pong!</h1>
-          <div class="score"></div>
+          <div class="winner"></div>
           <img
             src="https://seeklogo.com/images/B/bun-logo-A876328A1F-seeklogo.com.png"
             class="logo"
           />
+        </div>
+        <div class="title-container">
+          <span class="player-title-1">Player 1</span>
+
+
+          <span class="player-title-2">Player 2</span>
         </div>
         <div class="game">
           <div class="player-1"></div>

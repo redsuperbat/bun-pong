@@ -1,12 +1,12 @@
 import { ServerWebSocket } from "bun";
 import { randomUUID } from "crypto";
 import path from "path";
+import utils from "node:util";
 
 const port = 4545;
 
 interface GameState {
   ballPosition: Position;
-  score: number;
   playersPosition: Player[];
 }
 
@@ -20,79 +20,70 @@ class Position {
   }
 }
 
-class Area {
-  constructor(
-    public readonly position: Position,
-    public readonly height: number,
-    public readonly width: number
-  ) {}
-
-  intersects(area: Area) {
-    // Calculate the right and bottom edges of each area
-    const area1Right = this.position.x + this.width;
-    const area1Bottom = this.position.y + this.height;
-    const area2Right = area.position.x + area.width;
-    const area2Bottom = area.position.y + area.height;
-
-    // Check for intersection by comparing the edges
-    return (
-      this.position.x < area2Right &&
-      area1Right > area.position.x &&
-      this.position.y < area2Bottom &&
-      area1Bottom > area.position.y
-    );
-  }
-}
-
 class Player {
   constructor(
     public readonly id: string,
     private readonly ws: ServerWebSocket<unknown>
   ) {}
-  #position: Position = new Position(0, 0);
-  #area: Area = new Area(this.#position, 8, 1);
+  readonly height = 8;
+  readonly width = 1;
+  #y1 = 0;
+  #x1 = 0;
+  get y2() {
+    return this.#y1 + this.height;
+  }
+  get x2() {
+    return this.width + this.#x1;
+  }
+  get x1() {
+    return this.#x1;
+  }
+  get y1() {
+    return this.#y1;
+  }
 
   setPosition(x: number, y: number) {
-    this.#position = new Position(x, y);
-  }
-
-  get position(): Position {
-    return this.#position;
-  }
-
-  get area() {
-    return this.#area;
+    this.#y1 = y;
+    this.#x1 = x;
   }
 
   sendGameState(state: GameState) {
     const data = {
       players: state.playersPosition.map((it) => ({
-        y: it.#position.y,
+        y: it.y1,
         id: it.id,
       })),
-      score: state.score,
       ballPosition: state.ballPosition,
     };
     this.ws.send(`game-state:${JSON.stringify(data)}`);
   }
 
+  notifyWinner(winner: Player) {
+    this.ws.send(`game-end:${JSON.stringify({ winner: winner.id })}`);
+  }
+
   moveUp() {
-    if (this.position.y === 0) return;
-    this.position.y -= 2;
+    if (this.#y1 === 0) return;
+    this.#y1 -= 2;
   }
   moveDown() {
-    if (this.position.y === 100) return;
-    this.position.y += 2;
+    if (this.#y1 === 100) return;
+    this.#y1 += 2;
+  }
+
+  [utils.inspect.custom]() {
+    return `Player { x1: ${this.x1}, x2: ${this.x2}, y1: ${this.y1}, y2: ${this.y2} }`;
   }
 }
 
 class Ball {
-  readonly position: Position = new Position(50, 50);
-  #area: Area = new Area(this.position, 2, 2);
-  #speedX: number = 1;
-  #speedY: number = 2;
-  #width = 2;
-  #height = 2;
+  readonly position: Position = new Position(500, 500);
+  #speedX: number =
+    (Math.round(Math.random()) + 1) * Math.sign(Math.random() - 0.5);
+  #speedY: number =
+    (Math.round(Math.random()) + 1) * Math.sign(Math.random() - 0.5);
+  #width = 20;
+  #height = 20;
   #gameHeight: number;
   #gameWidth: number;
 
@@ -102,8 +93,8 @@ class Ball {
   }
 
   increaseSpeed() {
-    this.#speedX += 1;
-    this.#speedY += 1;
+    this.#speedX += 10;
+    this.#speedY += 10;
   }
 
   reverseX() {
@@ -130,39 +121,70 @@ class Ball {
     ) {
       this.reverseY();
     }
-    return this.#area;
+  }
+
+  [utils.inspect.custom]() {
+    return `Ball { x: ${this.position.x}, y: ${this.position.y} }`;
   }
 }
 
 class Game {
   readonly gameId = randomUUID();
 
-  #clientHeight = 100;
-  #clientWidth = 100;
-  #score = 0;
+  #clientHeight = 1000;
+  #clientWidth = 1000;
+  #winner?: Player;
   #ball = new Ball(this.#clientHeight, this.#clientWidth);
   #players: [Player?, Player?] = [];
   #isRunning = false;
+  #onGameEnd: () => void;
 
-  constructor(id: string, player1: Player) {
+  constructor(id: string, player1: Player, onGameEnd: () => void) {
     this.gameId = id;
     this.#players = [player1];
+    this.#onGameEnd = onGameEnd;
   }
   addPlayer(player: Player) {
     this.#players[1] = player;
   }
 
   tick() {
-    const ballArea = this.#ball.tick();
-    this.players.forEach((it) => {
-      const isIntersecting = it?.area.intersects(ballArea);
-      if (isIntersecting) {
-        console.log("reversing ball", this.#ball.position);
-        this.#ball.reverseX();
-        console.log("reversing ball", this.#ball.position);
-      }
-    });
+    this.#ball.tick();
     this.#players.forEach((it) => it?.sendGameState(this.state));
+    if (this.#ball.position.x === 10) {
+      const playerOne = this.players[0]!;
+      if (
+        this.#ball.position.y <= playerOne.y2 &&
+        this.#ball.position.y >= playerOne.y1
+      ) {
+        this.#ball.reverseX();
+      }
+    }
+    if (this.#ball.position.x === 970) {
+      const playerTwo = this.players[1]!;
+      if (
+        this.#ball.position.y <= playerTwo.y2 &&
+        this.#ball.position.y >= playerTwo.y1
+      ) {
+        this.#ball.reverseX();
+      }
+    }
+
+    if (this.#ball.position.x === 0) {
+      this.#winner = this.players[1];
+    }
+
+    if (this.#ball.position.x === 980) {
+      this.#winner = this.players[0];
+    }
+    const winner = this.#winner;
+    if (winner) {
+      console.log("we have a winner!", {
+        winner: winner.id,
+      });
+      this.players.forEach((it) => it?.notifyWinner(winner));
+      this.end();
+    }
   }
 
   get players() {
@@ -176,7 +198,6 @@ class Game {
   get state(): GameState {
     return {
       ballPosition: this.#ball.position,
-      score: this.#score,
       playersPosition: this.#players.filter((it): it is Player => !!it),
     };
   }
@@ -202,6 +223,11 @@ class Game {
     console.log("stopping game", this.gameId);
     this.#isRunning = false;
   }
+
+  end() {
+    this.#onGameEnd();
+  }
+
   removePlayer(id: string) {
     this.#players = this.#players.filter((it) => it?.id !== id) as [
       Player?,
@@ -259,13 +285,23 @@ const server = Bun.serve<{ gameId?: string; playerId?: string }>({
         const game = games.get(gameId);
 
         if (!game) {
+          const onEnd = () => {
+            games.delete(gameId);
+          };
           const playerId = "player-1";
           const player1 = new Player(playerId, ws);
-          const game = new Game(gameId, player1);
+          const game = new Game(gameId, player1, onEnd);
           console.log("player created a new game", game.players.length);
           ws.data.gameId = gameId;
           ws.data.playerId = playerId;
           games.set(gameId, game);
+          const subId = `game-started-${gameId}`;
+          console.log({ subId });
+          ws.subscribe(subId);
+          ws.publish(
+            "game-created",
+            `game-created:${JSON.stringify({ gameId })}`
+          );
           return;
         }
       }
@@ -282,7 +318,15 @@ const server = Bun.serve<{ gameId?: string; playerId?: string }>({
         game.addPlayer(player2);
         ws.data.gameId = game.gameId;
         ws.data.playerId = playerId;
-        game.start();
+        const countdown = 5000;
+        const data = `game-started:${JSON.stringify({ countdown })}`;
+        const subId = `game-started-${gameId}`;
+        console.log({ subId, data });
+        ws.publish(subId, data);
+        ws.send(data);
+        setTimeout(() => {
+          game.start();
+        }, countdown);
       }
       if (messageType === "move-up") {
         const game = games.get(ws.data.gameId ?? "");
@@ -298,8 +342,9 @@ const server = Bun.serve<{ gameId?: string; playerId?: string }>({
       }
     },
     open(ws) {
-      console.log("client connected!");
       ws.data = {};
+      console.log("client connected!");
+      ws.subscribe("game-created");
     },
     close(ws) {
       const gameId = ws.data.gameId ?? "";
