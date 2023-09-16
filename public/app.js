@@ -25,6 +25,8 @@ const runningGames = document.querySelector(".running-games");
  */
 const countdownEl = document.querySelector(".countdown");
 
+const SCALING_FACTOR = 1000;
+
 function addGame(gameId) {
   console.log("adding game...");
   const button = document.createElement("button");
@@ -76,12 +78,12 @@ ws.addEventListener("message", (msg) => {
     const state = JSON.parse(msgData);
     const left = state.ballPosition.x;
     const top = state.ballPosition.y;
-    ball.style.top = `${top / 100}%`;
-    ball.style.left = `${left / 100}%`;
+    ball.style.top = `${top / SCALING_FACTOR}%`;
+    ball.style.left = `${left / SCALING_FACTOR}%`;
     const player1Location = state.players.find((it) => it.id === "player-1");
     const player2Location = state.players.find((it) => it.id === "player-2");
-    player1.style.top = `${player1Location.y}%`;
-    player2.style.top = `${player2Location.y}%`;
+    player1.style.top = `${player1Location.y / SCALING_FACTOR}%`;
+    player2.style.top = `${player2Location.y / SCALING_FACTOR}%`;
   }
   if (msgType === "game-end") {
     winner.innerText = `WINNER IS: ${JSON.parse(msgData).winner}`;

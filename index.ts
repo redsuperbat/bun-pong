@@ -4,6 +4,9 @@ import path from "path";
 import utils from "node:util";
 
 const port = 4545;
+const SCALING_FACTOR = 1000;
+const PLAYER_WIDTH = 1 * SCALING_FACTOR;
+const PLAYER_HEIGHT = 8 * SCALING_FACTOR;
 
 interface GameState {
   ballPosition: Position;
@@ -25,8 +28,8 @@ class Player {
     public readonly id: string,
     private readonly ws: ServerWebSocket<unknown>
   ) {}
-  readonly height = 8;
-  readonly width = 1;
+  readonly height = PLAYER_HEIGHT;
+  readonly width = PLAYER_WIDTH;
   #y1 = 0;
   #x1 = 0;
   get y2() {
@@ -64,11 +67,11 @@ class Player {
 
   moveUp() {
     if (this.#y1 === 0) return;
-    this.#y1 -= 2;
+    this.#y1 -= 2 * SCALING_FACTOR;
   }
   moveDown() {
-    if (this.#y1 === 100) return;
-    this.#y1 += 2;
+    if (this.#y1 === 100 * SCALING_FACTOR - this.height) return;
+    this.#y1 += 2 * SCALING_FACTOR;
   }
 
   [utils.inspect.custom]() {
@@ -77,13 +80,20 @@ class Player {
 }
 
 class Ball {
-  readonly position: Position = new Position(500, 500);
+  readonly position: Position = new Position(
+    50 * SCALING_FACTOR,
+    50 * SCALING_FACTOR
+  );
   #speedX: number =
-    (Math.round(Math.random()) + 1) * Math.sign(Math.random() - 0.5);
+    (Math.round(Math.random()) + 1) *
+    Math.sign(Math.random() - 0.5) *
+    SCALING_FACTOR;
   #speedY: number =
-    (Math.round(Math.random()) + 1) * Math.sign(Math.random() - 0.5);
-  #width = 20;
-  #height = 20;
+    (Math.round(Math.random()) + 1) *
+    Math.sign(Math.random() - 0.5) *
+    SCALING_FACTOR;
+  readonly width = 2 * SCALING_FACTOR;
+  readonly height = 2 * SCALING_FACTOR;
   #gameHeight: number;
   #gameWidth: number;
 
@@ -93,8 +103,18 @@ class Ball {
   }
 
   increaseSpeed() {
-    this.#speedX += 10;
-    this.#speedY += 10;
+    if (this.#speedX === 150 || this.#speedX === -150) return;
+    if (this.#speedY === 150 || this.#speedY === -150) return;
+    if (this.#speedX < 0) {
+      this.#speedX -= SCALING_FACTOR * 0.2;
+    } else {
+      this.#speedX += SCALING_FACTOR * 0.2;
+    }
+    if (this.#speedY < 0) {
+      this.#speedY -= SCALING_FACTOR * 0.2;
+    } else {
+      this.#speedY += SCALING_FACTOR * 0.2;
+    }
   }
 
   reverseX() {
@@ -110,14 +130,14 @@ class Ball {
 
     if (
       this.position.x <= 0 ||
-      this.position.x >= this.#gameWidth - this.#width
+      this.position.x >= this.#gameWidth - this.width
     ) {
       this.reverseX();
     }
 
     if (
       this.position.y <= 0 ||
-      this.position.y >= this.#gameHeight - this.#height
+      this.position.y >= this.#gameHeight - this.height
     ) {
       this.reverseY();
     }
@@ -131,8 +151,8 @@ class Ball {
 class Game {
   readonly gameId = randomUUID();
 
-  #clientHeight = 1000;
-  #clientWidth = 1000;
+  #clientHeight = 100 * SCALING_FACTOR;
+  #clientWidth = 100 * SCALING_FACTOR;
   #winner?: Player;
   #ball = new Ball(this.#clientHeight, this.#clientWidth);
   #players: [Player?, Player?] = [];
@@ -151,30 +171,36 @@ class Game {
   tick() {
     this.#ball.tick();
     this.#players.forEach((it) => it?.sendGameState(this.state));
-    if (this.#ball.position.x === 10) {
+    // At the left most of the screen touching the player
+    if (this.#ball.position.x === PLAYER_WIDTH) {
       const playerOne = this.players[0]!;
       if (
         this.#ball.position.y <= playerOne.y2 &&
         this.#ball.position.y >= playerOne.y1
       ) {
         this.#ball.reverseX();
+        this.#ball.increaseSpeed();
       }
     }
-    if (this.#ball.position.x === 970) {
+    if (
+      this.#ball.position.x ===
+      this.#clientWidth - (this.#ball.width + PLAYER_WIDTH)
+    ) {
       const playerTwo = this.players[1]!;
       if (
         this.#ball.position.y <= playerTwo.y2 &&
         this.#ball.position.y >= playerTwo.y1
       ) {
         this.#ball.reverseX();
+        this.#ball.increaseSpeed();
       }
     }
 
-    if (this.#ball.position.x === 0) {
+    if (this.#ball.position.x <= 0) {
       this.#winner = this.players[1];
     }
 
-    if (this.#ball.position.x === 980) {
+    if (this.#ball.position.x >= this.#clientWidth - this.#ball.width) {
       this.#winner = this.players[0];
     }
     const winner = this.#winner;
@@ -226,6 +252,7 @@ class Game {
 
   end() {
     this.#onGameEnd();
+    this.stop();
   }
 
   removePlayer(id: string) {
